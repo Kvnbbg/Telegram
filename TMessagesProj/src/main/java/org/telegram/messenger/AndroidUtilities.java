@@ -301,67 +301,98 @@ public class AndroidUtilities {
     public static final Rect rectTmp2 = new Rect();
     public static final int[] pointTmp2 = new int[2];
 
-    public static Pattern WEB_URL = null;
-    public static Pattern BAD_CHARS_PATTERN = null;
-    public static Pattern LONG_BAD_CHARS_PATTERN = null;
-    public static Pattern BAD_CHARS_MESSAGE_PATTERN = null;
-    public static Pattern BAD_CHARS_MESSAGE_LONG_PATTERN = null;
-    public static Pattern REMOVE_MULTIPLE_DIACRITICS = null;
-    public static Pattern REMOVE_RTL = null;
+    private static Pattern WEB_URL = null;
+    private static Pattern BAD_CHARS_PATTERN = null;
+    private static Pattern LONG_BAD_CHARS_PATTERN = null;
+    private static Pattern BAD_CHARS_MESSAGE_PATTERN = null;
+    private static Pattern BAD_CHARS_MESSAGE_LONG_PATTERN = null;
+    private static Pattern REMOVE_MULTIPLE_DIACRITICS = null;
+    private static Pattern REMOVE_RTL = null;
     private static Pattern singleTagPatter = null;
 
-    public static String removeDiacritics(String str) {
-        if (str == null) return null;
-        if (REMOVE_MULTIPLE_DIACRITICS == null) return str;
-        Matcher matcher = REMOVE_MULTIPLE_DIACRITICS.matcher(str);
-        if (matcher == null) return str;
-        return matcher.replaceAll("$1");
+    private static Pattern getWebUrlPattern() {
+        if (WEB_URL == null) {
+            try {
+                final String GOOD_IRI_CHAR = "a-zA-Z0-9\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF";
+                final Pattern IP_ADDRESS = Pattern.compile(
+                        "((25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}|[1-9][0-9]|[1-9])\\.(25[0-5]|2[0-4]"
+                                + "[0-9]|[0-1][0-9]{2}|[1-9][0-9]|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]"
+                                + "[0-9]{2}|[1-9][0-9]|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}"
+                                + "|[1-9][0-9]|[0-9]))");
+                final String IRI = "[" + GOOD_IRI_CHAR + "]([" + GOOD_IRI_CHAR + "\\-]{0,61}[" + GOOD_IRI_CHAR + "]){0,1}";
+                final String GOOD_GTLD_CHAR = "a-zA-Z\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF";
+                final String GTLD = "[" + GOOD_GTLD_CHAR + "]{2,63}";
+                final String HOST_NAME = "(" + IRI + "\\.)+" + GTLD;
+                final Pattern DOMAIN_NAME = Pattern.compile("(" + HOST_NAME + "|" + IP_ADDRESS + ")");
+                WEB_URL = Pattern.compile(
+                        "((?:(http|https|Http|Https|ton|tg|tonsite):\\/\\/(?:(?:[a-zA-Z0-9\\$\\-\\_\\.\\+\\!\\*\\'\\(\\)"
+                                + "\\,\\;\\?\\&\\=]|(?:\\%[a-fA-F0-9]{2})){1,64}(?:\\:(?:[a-zA-Z0-9\\$\\-\\_"
+                                + "\\.\\+\\!\\*\\'\\(\\)\\,\\;\\?\\&\\=]|(?:\\%[a-fA-F0-9]{2})){1,25})?\\@)?)?"
+                                + "(?:" + DOMAIN_NAME + ")"
+                                + "(?:\\:\\d{1,5})?)" // plus option port number
+                                + "(\\/(?:(?:[" + GOOD_IRI_CHAR + "\\;\\/\\?\\:\\@\\&\\=\\#\\~"  // plus option query params
+                                + "\\-\\.\\+\\!\\*\\'\\(\\)\\,\\_])|(?:\\%[a-fA-F0-9]{2}))*)?"
+                                + "(?:\\b|$)");
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+        }
+        return WEB_URL;
     }
 
-    public static String removeRTL(String str) {
-        if (str == null) return null;
+    private static Pattern getBadCharsPattern() {
+        if (BAD_CHARS_PATTERN == null) {
+            BAD_CHARS_PATTERN = Pattern.compile("[\u2500-\u25ff]");
+        }
+        return BAD_CHARS_PATTERN;
+    }
+
+    private static Pattern getLongBadCharsPattern() {
+        if (LONG_BAD_CHARS_PATTERN == null) {
+            LONG_BAD_CHARS_PATTERN = Pattern.compile("[\u4e00-\u9fff]");
+        }
+        return LONG_BAD_CHARS_PATTERN;
+    }
+
+    private static Pattern getBadCharsMessagePattern() {
+        if (BAD_CHARS_MESSAGE_PATTERN == null) {
+            BAD_CHARS_MESSAGE_PATTERN = Pattern.compile("[\u2066-\u2067]+");
+        }
+        return BAD_CHARS_MESSAGE_PATTERN;
+    }
+
+    private static Pattern getBadCharsMessageLongPattern() {
+        if (BAD_CHARS_MESSAGE_LONG_PATTERN == null) {
+            BAD_CHARS_MESSAGE_LONG_PATTERN = Pattern.compile("[\u0300-\u036f\u2066-\u2067]");
+        }
+        return BAD_CHARS_MESSAGE_LONG_PATTERN;
+    }
+
+    private static Pattern getRemoveMultipleDiacriticsPattern() {
+        if (REMOVE_MULTIPLE_DIACRITICS == null) {
+            REMOVE_MULTIPLE_DIACRITICS = Pattern.compile("([\\u0300-\\u036f]{1,2})[\\u0300-\\u036f]+");
+        }
+        return REMOVE_MULTIPLE_DIACRITICS;
+    }
+
+    private static Pattern getRemoveRTLPattern() {
         if (REMOVE_RTL == null) {
             REMOVE_RTL = Pattern.compile("[\\u200E\\u200F\\u202A-\\u202E]");
         }
-        Matcher matcher = REMOVE_RTL.matcher(str);
-        if (matcher == null) return str;
-        return matcher.replaceAll("");
+        return REMOVE_RTL;
     }
 
-    public static String escape(String str) {
-        return removeRTL(removeDiacritics(str));
-    }
-
-    static {
-        try {
-            final String GOOD_IRI_CHAR = "a-zA-Z0-9\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF";
-            BAD_CHARS_PATTERN = Pattern.compile("[\u2500-\u25ff]");
-            LONG_BAD_CHARS_PATTERN = Pattern.compile("[\u4e00-\u9fff]");
-            BAD_CHARS_MESSAGE_LONG_PATTERN = Pattern.compile("[\u0300-\u036f\u2066-\u2067]");
-            BAD_CHARS_MESSAGE_PATTERN = Pattern.compile("[\u2066-\u2067]+");
-            REMOVE_MULTIPLE_DIACRITICS = Pattern.compile("([\\u0300-\\u036f]{1,2})[\\u0300-\\u036f]+");
-            final Pattern IP_ADDRESS = Pattern.compile(
-                    "((25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}|[1-9][0-9]|[1-9])\\.(25[0-5]|2[0-4]"
-                            + "[0-9]|[0-1][0-9]{2}|[1-9][0-9]|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]"
-                            + "[0-9]{2}|[1-9][0-9]|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1][0-9]{2}"
-                            + "|[1-9][0-9]|[0-9]))");
-            final String IRI = "[" + GOOD_IRI_CHAR + "]([" + GOOD_IRI_CHAR + "\\-]{0,61}[" + GOOD_IRI_CHAR + "]){0,1}";
-            final String GOOD_GTLD_CHAR = "a-zA-Z\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF";
-            final String GTLD = "[" + GOOD_GTLD_CHAR + "]{2,63}";
-            final String HOST_NAME = "(" + IRI + "\\.)+" + GTLD;
-            final Pattern DOMAIN_NAME = Pattern.compile("(" + HOST_NAME + "|" + IP_ADDRESS + ")");
-            WEB_URL = Pattern.compile(
-                    "((?:(http|https|Http|Https|ton|tg|tonsite):\\/\\/(?:(?:[a-zA-Z0-9\\$\\-\\_\\.\\+\\!\\*\\'\\(\\)"
-                            + "\\,\\;\\?\\&\\=]|(?:\\%[a-fA-F0-9]{2})){1,64}(?:\\:(?:[a-zA-Z0-9\\$\\-\\_"
-                            + "\\.\\+\\!\\*\\'\\(\\)\\,\\;\\?\\&\\=]|(?:\\%[a-fA-F0-9]{2})){1,25})?\\@)?)?"
-                            + "(?:" + DOMAIN_NAME + ")"
-                            + "(?:\\:\\d{1,5})?)" // plus option port number
-                            + "(\\/(?:(?:[" + GOOD_IRI_CHAR + "\\;\\/\\?\\:\\@\\&\\=\\#\\~"  // plus option query params
-                            + "\\-\\.\\+\\!\\*\\'\\(\\)\\,\\_])|(?:\\%[a-fA-F0-9]{2}))*)?"
-                            + "(?:\\b|$)");
-        } catch (Exception e) {
-            FileLog.e(e);
+    public static String removeFormatting(String str) {
+        if (str == null) return null;
+        if (REMOVE_MULTIPLE_DIACRITICS == null) {
+            return str;
         }
+        str = getRemoveMultipleDiacriticsPattern().matcher(str).replaceAll("$1");
+        if (REMOVE_RTL == null) {
+            REMOVE_RTL = Pattern.compile("[\\u200E\\u200F\\u202A-\\u202E]");
+        }
+        str = getRemoveRTLPattern().matcher(str).replaceAll("");
+        return str;
     }
 
     static {
@@ -3145,19 +3176,36 @@ public class AndroidUtilities {
         }
     }
 
-    public static void setScrollViewEdgeEffectColor(HorizontalScrollView scrollView, int color) {
+    public static void setScrollViewEdgeEffectColor(View scrollView, int color) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            scrollView.setEdgeEffectColor(color);
+            try {
+                if (scrollView instanceof HorizontalScrollView) {
+                    ((HorizontalScrollView) scrollView).setEdgeEffectColor(color);
+                } else if (scrollView instanceof ScrollView) {
+                    ((ScrollView) scrollView).setTopEdgeEffectColor(color);
+                    ((ScrollView) scrollView).setBottomEdgeEffectColor(color);
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
         } else if (Build.VERSION.SDK_INT >= 21) {
             try {
-                Field field = HorizontalScrollView.class.getDeclaredField("mEdgeGlowLeft");
+                Class<?> clazz = scrollView.getClass();
+                String topField = "mEdgeGlowTop";
+                String bottomField = "mEdgeGlowBottom";
+                if (scrollView instanceof HorizontalScrollView) {
+                    topField = "mEdgeGlowLeft";
+                    bottomField = "mEdgeGlowRight";
+                }
+
+                Field field = clazz.getDeclaredField(topField);
                 field.setAccessible(true);
                 EdgeEffect mEdgeGlowTop = (EdgeEffect) field.get(scrollView);
                 if (mEdgeGlowTop != null) {
                     mEdgeGlowTop.setColor(color);
                 }
 
-                field = HorizontalScrollView.class.getDeclaredField("mEdgeGlowRight");
+                field = clazz.getDeclaredField(bottomField);
                 field.setAccessible(true);
                 EdgeEffect mEdgeGlowBottom = (EdgeEffect) field.get(scrollView);
                 if (mEdgeGlowBottom != null) {
@@ -3165,31 +3213,6 @@ public class AndroidUtilities {
                 }
             } catch (Exception e) {
                 FileLog.e(e);
-            }
-        }
-    }
-
-    public static void setScrollViewEdgeEffectColor(ScrollView scrollView, int color) {
-        if (Build.VERSION.SDK_INT >= 29) {
-            scrollView.setTopEdgeEffectColor(color);
-            scrollView.setBottomEdgeEffectColor(color);
-        } else if (Build.VERSION.SDK_INT >= 21) {
-            try {
-                Field field = ScrollView.class.getDeclaredField("mEdgeGlowTop");
-                field.setAccessible(true);
-                EdgeEffect mEdgeGlowTop = (EdgeEffect) field.get(scrollView);
-                if (mEdgeGlowTop != null) {
-                    mEdgeGlowTop.setColor(color);
-                }
-
-                field = ScrollView.class.getDeclaredField("mEdgeGlowBottom");
-                field.setAccessible(true);
-                EdgeEffect mEdgeGlowBottom = (EdgeEffect) field.get(scrollView);
-                if (mEdgeGlowBottom != null) {
-                    mEdgeGlowBottom.setColor(color);
-                }
-            } catch (Exception ignore) {
-
             }
         }
     }
